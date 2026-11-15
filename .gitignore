@@ -22,6 +22,7 @@ pnpm-debug.log*
 .superpowers/
 .taste-skill/
 shots/
+.agents/
 
 # System and IDE
 .DS_Store
