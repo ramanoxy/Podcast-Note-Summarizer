@@ -100,6 +100,7 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted, onUnmounted } from 'vue'
 import { useSessions } from '~/composables/useSessions'
 
 const props = defineProps<{
@@ -133,4 +134,18 @@ function formatDate(timestamp: number): string {
     minute: '2-digit'
   })
 }
+
+function handleKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && props.isOpen) {
+    emit('close')
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
+})
 </script>

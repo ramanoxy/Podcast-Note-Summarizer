@@ -24,6 +24,16 @@ function escapeHtml(text: string): string {
     .replace(/>/g, '&gt;')
 }
 
+function parseInlineMarkdown(text: string): string {
+  return text
+    // Inline code `code`
+    .replace(/`([^`]+)`/g, '<code class="px-1 py-0.5 bg-monomax-800 text-white rounded font-mono text-[11px]">$1</code>')
+    // Bold **text**
+    .replace(/\*\*([^*]+)\*\*/g, '<strong class="font-bold text-white">$1</strong>')
+    // Italic *text*
+    .replace(/\*([^*]+)\*/g, '<em class="italic text-monomax-300">$1</em>')
+}
+
 const renderedHtml = computed(() => {
   if (!props.markdown) {
     return '<p class="text-monomax-600 italic">Belum ada catatan. Mulai ketik catatan atau tekan shortcut Ctrl+T untuk menyisipkan waktu video.</p>'
@@ -41,25 +51,25 @@ const renderedHtml = computed(() => {
     // Heading 3
     if (line.startsWith('### ')) {
       if (inList) { htmlLines.push('</ul>'); inList = false }
-      htmlLines.push(`<h4 class="text-xs uppercase tracking-wider font-bold text-monomax-200 mt-4 mb-2 font-mono">${line.substring(4)}</h4>`)
+      htmlLines.push(`<h4 class="text-xs uppercase tracking-wider font-bold text-monomax-200 mt-4 mb-2 font-mono">${parseInlineMarkdown(line.substring(4))}</h4>`)
       continue
     }
     // Heading 2
     if (line.startsWith('## ')) {
       if (inList) { htmlLines.push('</ul>'); inList = false }
-      htmlLines.push(`<h3 class="text-sm font-bold text-white mt-6 mb-3 font-mono border-b border-monomax-800 pb-1">${line.substring(3)}</h3>`)
+      htmlLines.push(`<h3 class="text-sm font-bold text-white mt-6 mb-3 font-mono border-b border-monomax-800 pb-1">${parseInlineMarkdown(line.substring(3))}</h3>`)
       continue
     }
     // Heading 1
     if (line.startsWith('# ')) {
       if (inList) { htmlLines.push('</ul>'); inList = false }
-      htmlLines.push(`<h2 class="text-base font-bold text-white mt-6 mb-3 font-mono">${line.substring(2)}</h2>`)
+      htmlLines.push(`<h2 class="text-base font-bold text-white mt-6 mb-3 font-mono">${parseInlineMarkdown(line.substring(2))}</h2>`)
       continue
     }
     // Blockquote
     if (line.startsWith('&gt; ')) {
       if (inList) { htmlLines.push('</ul>'); inList = false }
-      htmlLines.push(`<blockquote class="border-l-2 border-white pl-3 text-monomax-300 italic my-2">${line.substring(5)}</blockquote>`)
+      htmlLines.push(`<blockquote class="border-l-2 border-white pl-3 text-monomax-300 italic my-2">${parseInlineMarkdown(line.substring(5))}</blockquote>`)
       continue
     }
     // Unordered List item
@@ -69,7 +79,7 @@ const renderedHtml = computed(() => {
         inList = true
       }
       const itemText = line.replace(/^[-*•]\s+/, '')
-      htmlLines.push(`<li class="text-monomax-200">${itemText}</li>`)
+      htmlLines.push(`<li class="text-monomax-200">${parseInlineMarkdown(itemText)}</li>`)
       continue
     }
 
@@ -81,7 +91,7 @@ const renderedHtml = computed(() => {
     if (!line.trim()) {
       htmlLines.push('<div class="h-2"></div>')
     } else {
-      htmlLines.push(`<p class="my-1 text-monomax-200">${line}</p>`)
+      htmlLines.push(`<p class="my-1 text-monomax-200">${parseInlineMarkdown(line)}</p>`)
     }
   }
 

@@ -4,6 +4,9 @@ import { useSessions } from '~/composables/useSessions'
 describe('useSessions', () => {
   beforeEach(() => {
     localStorage.clear()
+    const { pastSessions, createNewSession } = useSessions()
+    pastSessions.value = []
+    createNewSession()
   })
 
   it('initializes with default empty session', () => {
@@ -34,7 +37,7 @@ describe('useSessions', () => {
       notes: 'Notes content [01:00]',
       updatedAt: Date.now()
     }
-    saveCurrentSession()
+    saveCurrentSession(true)
     expect(pastSessions.value.length).toBe(1)
     expect(pastSessions.value[0].title).toBe('Podcast Episode 1')
 

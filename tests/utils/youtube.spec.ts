@@ -14,6 +14,12 @@ describe('extractYouTubeId', () => {
   it('extracts ID from embed URL', () => {
     expect(extractYouTubeId('https://www.youtube.com/embed/dQw4w9WgXcQ')).toBe('dQw4w9WgXcQ')
   })
+  it('extracts ID from live stream URL', () => {
+    expect(extractYouTubeId('https://www.youtube.com/live/dQw4w9WgXcQ')).toBe('dQw4w9WgXcQ')
+  })
+  it('extracts ID from raw 11-character video ID', () => {
+    expect(extractYouTubeId('dQw4w9WgXcQ')).toBe('dQw4w9WgXcQ')
+  })
   it('returns null for invalid URLs', () => {
     expect(extractYouTubeId('https://google.com')).toBeNull()
     expect(extractYouTubeId('')).toBeNull()
@@ -24,6 +30,8 @@ describe('isValidYouTubeInput', () => {
   it('validates correct youtube links', () => {
     expect(isValidYouTubeInput('https://youtube.com/watch?v=test1234567')).toBe(true)
     expect(isValidYouTubeInput('https://youtu.be/test1234567')).toBe(true)
+    expect(isValidYouTubeInput('https://youtube.com/live/test1234567')).toBe(true)
+    expect(isValidYouTubeInput('test1234567')).toBe(true)
     expect(isValidYouTubeInput('https://invalid.com/test')).toBe(false)
   })
 })

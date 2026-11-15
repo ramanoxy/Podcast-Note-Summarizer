@@ -17,12 +17,12 @@
 
     <!-- Video Canvas Container -->
     <div class="relative flex-1 bg-black flex items-center justify-center min-h-[240px] md:min-h-[320px]">
-      <div v-if="videoId" class="w-full h-full">
+      <div v-show="videoId" class="w-full h-full">
         <div id="youtube-iframe-container" class="w-full h-full"></div>
       </div>
 
       <!-- Empty State Placeholder (Monochrome Experimental) -->
-      <div v-else class="flex flex-col items-center justify-center text-center p-8 max-w-sm">
+      <div v-if="!videoId" class="flex flex-col items-center justify-center text-center p-8 max-w-sm">
         <div class="w-12 h-12 border border-monomax-700 flex items-center justify-center mb-4 text-monomax-400">
           <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
@@ -93,7 +93,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { usePlayer } from '~/composables/usePlayer'
 import { formatSecondsToTimestamp } from '~/utils/timestamp'
 
@@ -102,42 +102,65 @@ const props = defineProps<{
 }>()
 
 const playerStore = usePlayer()
-const { currentTime, duration, isPlaying, playbackRate, targetSeekTime, playToggleTrigger } = playerStore
+const { currentTime, duration, isPlaying, playbackRate, seekTarget, playToggleTrigger } = playerStore
 
 const formattedCurrentTime = computed(() => formatSecondsToTimestamp(currentTime.value))
 const formattedDuration = computed(() => formatSecondsToTimestamp(duration.value))
 
 let ytPlayer: any = null
 let pollInterval: any = null
+let isApiLoading = false
 
 function initYouTubeAPI() {
   if (typeof window === 'undefined') return
 
-  if (!(window as any).YT) {
+  if ((window as any).YT && (window as any).YT.Player) {
+    if (props.videoId) createPlayer()
+    return
+  }
+
+  if (isApiLoading) return
+  isApiLoading = true
+
+  const existingTag = document.querySelector('script[src*="youtube.com/iframe_api"]')
+  if (!existingTag) {
     const tag = document.createElement('script')
     tag.src = 'https://www.youtube.com/iframe_api'
     const firstScript = document.getElementsByTagName('script')[0]
-    firstScript.parentNode?.insertBefore(tag, firstScript)
+    firstScript?.parentNode?.insertBefore(tag, firstScript)
+  }
 
-    ;(window as any).onYouTubeIframeAPIReady = () => {
+  const prevReady = (window as any).onYouTubeIframeAPIReady
+  ;(window as any).onYouTubeIframeAPIReady = () => {
+    if (prevReady) prevReady()
+    isApiLoading = false
+    if (props.videoId) {
       createPlayer()
     }
-  } else {
-    createPlayer()
   }
 }
 
-function createPlayer() {
-  if (!props.videoId || typeof window === 'undefined' || !(window as any).YT) return
+async function createPlayer() {
+  if (!props.videoId || typeof window === 'undefined') return
+
+  await nextTick()
+
+  const YT = (window as any).YT
+  if (!YT || !YT.Player) {
+    initYouTubeAPI()
+    return
+  }
+
+  // If player already exists, load video directly
+  if (ytPlayer && ytPlayer.loadVideoById) {
+    ytPlayer.loadVideoById(props.videoId)
+    return
+  }
 
   const container = document.getElementById('youtube-iframe-container')
   if (!container) return
 
-  if (ytPlayer && ytPlayer.destroy) {
-    ytPlayer.destroy()
-  }
-
-  ytPlayer = new (window as any).YT.Player('youtube-iframe-container', {
+  ytPlayer = new YT.Player('youtube-iframe-container', {
     videoId: props.videoId,
     playerVars: {
       autoplay: 1,
@@ -210,10 +233,10 @@ function changePlaybackRate(rate: number) {
   }
 }
 
-// Watch targetSeekTime to execute player seek
-watch(targetSeekTime, (newTime) => {
-  if (newTime !== null && ytPlayer && ytPlayer.seekTo) {
-    ytPlayer.seekTo(newTime, true)
+// Watch seekTarget to execute player seek
+watch(seekTarget, (target) => {
+  if (target && ytPlayer && ytPlayer.seekTo) {
+    ytPlayer.seekTo(target.seconds, true)
   }
 })
 
@@ -222,17 +245,17 @@ watch(playToggleTrigger, () => {
   togglePlay()
 })
 
-// Watch videoId changes to reload player
-watch(() => props.videoId, (newId) => {
+// Watch videoId changes to load or create player
+watch(() => props.videoId, async (newId) => {
   if (newId) {
+    await nextTick()
     createPlayer()
   }
 })
 
 onMounted(() => {
-  if (props.videoId) {
-    initYouTubeAPI()
-  }
+  // Always initialize YouTube API regardless of whether videoId is present yet
+  initYouTubeAPI()
 })
 
 onUnmounted(() => {

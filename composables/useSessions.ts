@@ -16,6 +16,7 @@ const currentSession = ref<Session>({
 })
 
 const undoStack = ref<string[]>([])
+let saveTimeout: any = null
 
 export function useSessions() {
   function initStorage() {
@@ -51,21 +52,29 @@ export function useSessions() {
       updatedAt: Date.now()
     }
     undoStack.value = []
-    persistCurrent()
+    persistCurrentDirect()
   }
 
-  function persistCurrent() {
+  function persistCurrentDirect() {
     if (typeof window === 'undefined' || !window.localStorage) return
     currentSession.value.updatedAt = Date.now()
-    localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify(currentSession.value))
+    try {
+      localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify(currentSession.value))
+    } catch (e) {
+      console.warn('Failed to persist current session', e)
+    }
   }
 
-  function persistList() {
+  function persistListDirect() {
     if (typeof window === 'undefined' || !window.localStorage) return
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(pastSessions.value))
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(pastSessions.value))
+    } catch (e) {
+      console.warn('Failed to persist session list', e)
+    }
   }
 
-  function saveCurrentSession() {
+  function saveCurrentSession(immediate = false) {
     if (!currentSession.value.id) {
       currentSession.value.id = 'session_' + Date.now()
     }
@@ -82,8 +91,18 @@ export function useSessions() {
       pastSessions.value.unshift({ ...currentSession.value })
     }
 
-    persistCurrent()
-    persistList()
+    if (immediate) {
+      if (saveTimeout) clearTimeout(saveTimeout)
+      persistCurrentDirect()
+      persistListDirect()
+    } else {
+      // Debounce storage writes during typing
+      if (saveTimeout) clearTimeout(saveTimeout)
+      saveTimeout = setTimeout(() => {
+        persistCurrentDirect()
+        persistListDirect()
+      }, 300)
+    }
   }
 
   function loadSession(id: string) {
@@ -91,13 +110,13 @@ export function useSessions() {
     if (found) {
       currentSession.value = { ...found }
       undoStack.value = []
-      persistCurrent()
+      persistCurrentDirect()
     }
   }
 
   function deleteSession(id: string) {
     pastSessions.value = pastSessions.value.filter(s => s.id !== id)
-    persistList()
+    persistListDirect()
     if (currentSession.value.id === id) {
       createNewSession()
     }
@@ -107,14 +126,14 @@ export function useSessions() {
     // Push previous version into undo stack before overwriting
     undoStack.value.push(currentSession.value.notes)
     currentSession.value.notes = newNotes
-    persistCurrent()
+    saveCurrentSession(true)
   }
 
   function undoLastRefinement() {
     if (undoStack.value.length > 0) {
       const prev = undoStack.value.pop()!
       currentSession.value.notes = prev
-      persistCurrent()
+      saveCurrentSession(true)
     }
   }
 
